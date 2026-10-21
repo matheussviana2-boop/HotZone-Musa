@@ -170,8 +170,7 @@ function home(){
       ${['Todas',...cids].map(c=>`<button data-k="cid" data-v="${esc(c)}" aria-pressed="${st.cid===c}">${esc(c)}<span>${c==='Todas'?pool.length:pool.filter(r=>r.cid===c).length}</span></button>`).join('')}
     </div></div>
     <div class="summary">${plural(shown.length,'rota','rotas')} · ${plural(nPts,'ponto crítico','pontos críticos')}. Toque na rota para ver os pontos com foto.</div>
-    ${Object.entries(groups).map(([c,rs])=>`<section class="group"><h2>${esc(c)}</h2><div class="list">${rs.map(routeRow).join('')}</div></section>`).join('') || '<p class="empty">Nenhuma rota cadastrada aqui.</p>'}
-    <p class="foot">Fonte: planilhas de Procedimento Seguro de Trabalho · Pontos Críticos.</p>`;
+    ${Object.entries(groups).map(([c,rs])=>`<section class="group"><h2>${esc(c)}</h2><div class="list">${rs.map(routeRow).join('')}</div></section>`).join('') || '<p class="empty">Nenhuma rota cadastrada aqui.</p>'}`;
 }
 function photos(fs){
   if (!fs.length) return '';
