@@ -6,6 +6,7 @@
 <link rel="icon" href="img/logo.png">
 <title>Pontos Críticos MUSA</title>
 <meta name="theme-color" content="#00928a">
+<meta name="color-scheme" content="only light">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
@@ -18,15 +19,10 @@ img{max-width:100%}
 :root{
   --bg:#eef3f3; --surface:#ffffff; --ink:#132321; --muted:#566664; --line:#d3dfde;
   --sign:#00928a; --sign-ink:#ffffff; --brand2:#21c6be; --danger:#b8321f; --danger-bg:#fbe9e5; --chip:#e6efee; --road:#7fbfba;
+  color-scheme:light;
   --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
   --body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0f1817; --surface:#162221; --ink:#e8f1f0; --muted:#93a8a6; --line:#26403d;
-  --sign:#21c6be; --sign-ink:#00211f; --brand2:#21c6be; --danger:#ff7a63; --danger-bg:#3a1c17; --chip:#1f302e; --road:#2f6b66; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0f1817; --surface:#162221; --ink:#e8f1f0; --muted:#93a8a6; --line:#26403d;
-  --sign:#21c6be; --sign-ink:#00211f; --brand2:#21c6be; --danger:#ff7a63; --danger-bg:#3a1c17; --chip:#1f302e; --road:#2f6b66; color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
@@ -99,6 +95,9 @@ main .wrap{padding-block:16px 48px;display:grid;gap:18px}
 .do{border-left:4px solid var(--sign);background:var(--bg);border-radius:0 8px 8px 0;padding:8px 12px}
 .do .label{display:block;margin-bottom:2px}
 .do p{margin:0;font-weight:500}
+.hit{display:block;margin-top:4px;font-size:13px;color:var(--sign);font-weight:500}
+.stop.found .card{border:2px solid var(--sign);box-shadow:0 0 0 3px color-mix(in srgb,var(--sign) 20%,transparent)}
+.stop{scroll-margin-top:150px}
 .ctx{font-size:13px;color:var(--muted)}
 .ctx button{border:0;background:none;padding:0;color:var(--ink);text-decoration:underline;font-weight:600;font-size:13px}
 
@@ -133,7 +132,7 @@ const DATA = {"rotas":[{"id":"mo-chegada-01-jadir-marinho-adm-0700","mina":"Mina
 const R = DATA.rotas, DIMS = DATA.dims;
 const app = document.getElementById('app');
 const q = document.getElementById('q'), qclear = document.getElementById('qclear');
-let navIn = false;
+let navIn = false, hlq = '';
 const HI = /atropel|queda|ponto cego/i;
 const st = {mina:'Mina Central', sent:'Chegada', cid:'Todas'};
 try{ Object.assign(st, JSON.parse(localStorage.getItem('pc-filtros')||'{}')); }catch(e){}
@@ -178,8 +177,8 @@ function photos(fs){
   if (!fs.length) return '';
   return `<div class="photos">${fs.map(h=>{const d=DIMS[h]||[4,3];return `<button data-img="${h}" aria-label="Ampliar foto"><img src="img/${h}.jpg" loading="lazy" decoding="async" alt="" style="--ar:${d[0]}/${d[1]}" width="${d[0]}" height="${d[1]}"></button>`}).join('')}</div>${fs.length>1?`<div class="pc">${fs.length} fotos · arraste para o lado</div>`:''}`;
 }
-function stopCard(p, i, ctx){
-  return `<li class="stop"><span class="num">${i}</span><article class="card">${photos(p.f)}
+function stopCard(p, i, ctx, hit){
+  return `<li class="stop${hit?' found':''}"><span class="num">${i}</span><article class="card">${photos(p.f)}
     <div class="body">
       ${p.l?`<h3>${esc(p.l)}</h3>`:`<h3 class="na">Local sem descrição na planilha</h3>`}
       ${ctx||''}
@@ -188,44 +187,60 @@ function stopCard(p, i, ctx){
     </div></article></li>`;
 }
 function route(r){
+  const hm = hlq ? matchFn(hlq) : null;
+  const nHit = hm ? r.p.filter(p=>hm(p.l+' '+p.m)).length : 0;
   app.innerHTML = `
     <button class="back" data-back>← Todas as rotas</button>
     <div class="rhead">
       <span class="plate">${esc(r.cod)}</span>
       <h2>${esc(r.nome)}</h2>
       <div class="tags"><span class="tag hl">${esc(r.mina)}</span><span class="tag hl">${esc(r.sent)}</span><span class="tag">${esc(r.cid)}</span>${meta(r).map(x=>`<span class="tag">${esc(x)}</span>`).join('')}</div>
-      <div class="summary">${plural(r.p.length,'ponto crítico','pontos críticos')} na ordem do trajeto.</div>
+      <div class="summary">${plural(r.p.length,'ponto crítico','pontos críticos')} na ordem do trajeto.${nHit?` ${plural(nHit,'ponto destacado','pontos destacados')} pela busca “${esc(hlq)}”.`:''}</div>
     </div>
-    <ol class="stops">${r.p.map((p,i)=>stopCard(p,i+1)).join('')}</ol>
+    <ol class="stops">${r.p.map((p,i)=>stopCard(p,i+1,'',hlq&&hm(p.l+' '+p.m))).join('')}</ol>
     <button class="back" data-back>← Todas as rotas</button>`;
-  scrollTo(0,0);
+  const f = hlq && app.querySelector('.stop.found');
+  f ? f.scrollIntoView({block:'start'}) : scrollTo(0,0);
+}
+function matchFn(term){
+  const words = norm(term.trim()).split(/\s+/).filter(Boolean);
+  return txt => { const n = norm(txt); return words.every(w => n.includes(w)); };
 }
 function search(term){
-  const t = norm(term.trim());
+  const m = matchFn(term);
   const hits = [];
   R.forEach(r => {
-    const rm = norm(`${r.cod} ${r.nome} ${r.cid}`).includes(t);
-    r.p.forEach((p,i) => { if (rm || norm(p.l+' '+p.m).includes(t)) hits.push([r,p,i]); });
+    const byRoute = m(`${r.cod} ${r.nome} ${r.cid} ${r.mina} ${r.sent}`);
+    const pts = r.p.filter(p => m(p.l+' '+p.m));
+    if (byRoute || pts.length) hits.push({r, pts, byRoute});
   });
-  const shown = hits.slice(0,60);
-  app.innerHTML = `<div class="summary">${hits.length?plural(hits.length,'ponto encontrado','pontos encontrados'):'Nada encontrado'} para “${esc(term)}”${hits.length>60?' · mostrando os 60 primeiros':''}.</div>
-    <ol class="stops">${shown.map(([r,p,i])=>stopCard(p,i+1,`<div class="ctx">${esc(r.mina)} · ${esc(r.sent)} · <button data-id="${r.id}">${esc(r.cod)} ${esc(r.nome)}</button> ${esc(meta(r).join(' · '))}</div>`)).join('')}</ol>`;
+  hits.sort((a,b) => (b.byRoute - a.byRoute) || (b.pts.length - a.pts.length));
+  const groups = {};
+  hits.forEach(h => (groups[h.r.mina+' · '+h.r.sent] ||= []).push(h));
+  app.innerHTML = `<div class="summary">${hits.length?plural(hits.length,'rota encontrada','rotas encontradas'):'Nenhuma rota encontrada'} para “${esc(term)}”. Toque na rota para abrir.</div>
+    ${Object.entries(groups).map(([g,hs])=>`<section class="group"><h2>${esc(g)}</h2><div class="list">${hs.map(({r,pts})=>`
+      <button class="route" data-id="${r.id}" data-q="${esc(term)}">
+        <span class="plate">${esc(r.cod)}</span>
+        <span class="nm"><b>${esc(r.nome)}</b><span class="meta"><span>${esc(r.cid)}</span>${meta(r).map(x=>`<span>${esc(x)}</span>`).join('')}</span>
+        ${pts.length?`<span class="hit">Passa por: ${pts.slice(0,2).map(p=>esc(p.l||'ponto sem descrição')).join(' · ')}${pts.length>2?` +${pts.length-2}`:''}</span>`:''}</span>
+        <span class="count">${r.p.length}<small>pontos</small></span></button>`).join('')}</div></section>`).join('')}`;
 }
 function render(){
   const id = location.hash.slice(1);
   const r = R.find(x=>x.id===id);
-  if (q.value.trim().length>=2 && !r) return search(q.value);
-  r ? route(r) : home();
+  if (r) return route(r);
+  hlq = '';
+  q.value.trim().length>=2 ? search(q.value) : home();
 }
 app.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.img){ document.getElementById('lbimg').src = `img/${b.dataset.img}.jpg`; document.getElementById('lb').hidden=false; return; }
-  if (b.dataset.id){ q.value=''; qclear.hidden=true; navIn=true; location.hash = b.dataset.id; return; }
+  if (b.dataset.id){ hlq = b.dataset.q || ''; navIn=true; location.hash = b.dataset.id; return; }
   if ('back' in b.dataset){ if (navIn){ navIn=false; history.back(); } else { location.hash=''; } return; }
   if (b.dataset.k){ st[b.dataset.k]=b.dataset.v; if(b.dataset.k!=='cid') st.cid='Todas'; save(); home(); }
 });
 window.addEventListener('hashchange', render);
-let tm; q.addEventListener('input', () => { qclear.hidden = !q.value; clearTimeout(tm); tm=setTimeout(()=>{ if(location.hash){ history.replaceState(null,'',location.pathname+location.search);} render(); },180); });
+let tm; q.addEventListener('input', () => { qclear.hidden = !q.value; clearTimeout(tm); tm=setTimeout(()=>{ if(location.hash){ navIn=false; history.replaceState(null,'',location.pathname+location.search);} render(); },180); });
 qclear.addEventListener('click', ()=>{ q.value=''; qclear.hidden=true; render(); q.focus(); });
 const lb = document.getElementById('lb');
 lb.addEventListener('click', ()=>{ lb.hidden=true; });
